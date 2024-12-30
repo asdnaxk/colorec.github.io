@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Picker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: white;
+        }
+        .container {
+            text-align: center;
+            margin-top: 50px;
+        }
+        canvas {
+            border: 1px solid #fff;
+            cursor: pointer;
+        }
+        #uploadButton {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #uploadButton:hover {
+            background-color: #0056b3;
+        }
+        .color-info {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        .color-box {
+            width: 50px;
+            height: 50px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Color Picker Tool</h1>
+    <input type="file" id="imageUpload" accept="image/*">
+    <button id="uploadButton" onclick="uploadImage()">Upload Image</button>
+
+    <div id="imageContainer"></div>
+    <canvas id="canvas"></canvas>
+
+    <div class="color-info" id="colorInfo">
+        <p>RGB: (0, 0, 0)</p>
+        <p>Hex: #000000</p>
+    </div>
+    <div class="color-box" id="colorBox"></div>
+</div>
+
+<script>
+    let canvas = document.getElementById('canvas');
+    let ctx = canvas.getContext('2d');
+    let imgElement = null;
+    let imagePath = null;
+
+    function uploadImage() {
+        let fileInput = document.getElementById('imageUpload');
+        let file = fileInput.files[0];
+
+        if (!file) {
+            alert('Please select an image file');
+            return;
+        }
+
+        let formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        }).then(response => response.json()).then(data => {
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            imagePath = data.file_path;
+            imgElement = new Image();
+            imgElement.src = imagePath;
+
+            imgElement.onload = function () {
+                canvas.width = imgElement.width;
+                canvas.height = imgElement.height;
+                ctx.drawImage(imgElement, 0, 0);
+            };
+        }).catch(error => {
+            console.error(error);
+        });
+    }
+
+    canvas.addEventListener('click', function (event) {
+        if (!imgElement) return;
+
+        const canvasOffset = canvas.getBoundingClientRect();
+        const x = event.clientX - canvasOffset.left;
+        const y = event.clientY - canvasOffset.top;
+
+        fetch('/get_color', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                x: x,
+                y: y,
+                file_path: imagePath
+            })
+        }).then(response => response.json()).then(data => {
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            document.getElementById('colorInfo').innerHTML = `<p>RGB: ${data.rgb}</p><p>Hex: ${data.hex}</p>`;
+            document.getElementById('colorBox').style.backgroundColor = data.hex;
+        }).catch(error => {
+            console.error(error);
+        });
+    });
+</script>
+
+</body>
+</html>
